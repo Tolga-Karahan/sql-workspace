@@ -15,8 +15,8 @@ CREATE TABLE animal_specifics (
 
 INSERT INTO animals (name, kind)
 VALUES ('Tolga', 'Homo Sapiens'),
-        ('Boncuk', 'Felis Catus');
+       ('Boncuk', 'Felis Catus');
 		
 INSERT INTO animal_specifics (kind, life_expectancy, origin, average_height, average_weight, agressive)
 VALUES ('Homo Sapiens', 70, 'World', 170, 70, TRUE),
-        ('Felis Catus', 10, 'World', 20, 10, TRUE);
+       ('Felis Catus', 10, 'World', 20, 10, TRUE);
