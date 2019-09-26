@@ -1,0 +1,9 @@
+id|first_name|last_name|school|hire_date|salary
+1|Janet|Smith|F.D. Roosevelt HS|2011-10-30|36200
+2|Tolga|Karahan|Stanford CS Department|2016-09-12|175000
+3|Lee|Reynolds|F.D. Roosevelt HS|1993-05-22|65000
+4|Samuel|Cole|Myers Middle School|2005-08-01|43500
+5|Samantha|Bush|Myers Middle School|2011-10-30|36200
+6|Betty|Diaz|Myers Middle School|2005-08-30|43500
+7|Kathleen|Roush|F.D. Roosevelt HS|2010-10-22|38500
+8|Deli|Hamza|||
