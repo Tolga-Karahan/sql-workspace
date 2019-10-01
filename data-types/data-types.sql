@@ -5,7 +5,7 @@ PostgreSQL'de bulunur. */
 /* SQL standardı integer olarak smallint, integer ve bigint tiplerini sağlar.
 Sırası ile 2, 4 ve 8 byte bellek alanı kaplarlar. smallint tipinin sınırları
 -32768 ve +32767 arasıdır. 2.1 milyardan daha büyük sayılar kullanacaksak
-sütun tipini bigint yapmalıyız. Belirlenen veri tipinin aralığının dışında*
+sütun tipini bigint yapmalıyız. Belirlenen veri tipinin aralığının dışında
 bir veriyi tabloya eklemek istediğimiz out of range hatası alırız.
 
 Yukarıda belirtilen integer tiplerinin otomatik artan versiyonları olan serial
@@ -38,7 +38,7 @@ CREATE TABLE decimal_formats (
 );
 
 INSERT INTO decimal_formats
-VALUES (.7, .7, .7),
+VALUES  (.7, .7, .7),
 		(7.14782, 7.14782, 7.14782),
 		(7.147829876, 7.147829876, 7.147829876);
 		
@@ -48,4 +48,63 @@ WITH (FORMAT CSV, HEADER, DELIMITER '|');
 -- Tabloları aşağıdaki formattaki gibi diske yazabiliriz.
 COPY teachers TO '/home/apeiron/Desktop/teachers.txt'
 WITH (FORMAT CSV, HEADER, DELIMITER '|');
+
+# Zaman ve tarih bilgisinin birlikte tutulduğu formata timestamp denir. Veritabanı
+# serverından faydalanarak o anki zamanı elde edebiliriz. Dünyanın farklı noktalarındaki
+# zamanları karşılaştırabilmek için 'with time zone' keywordünü ekleriz. Bunun PostgreSQL'deki
+# karşılığı 'timestamptz' olmaktadır.
+
+# date tipi sadece tarihi, time tipi sadece zamanı tutar. time tipi ile de 'with time zone'
+# keywordunu kullanmalıyız. Aksi takdirde farklı zaman bölgeleri arasında karşılaştırmalar
+# yapamayız. interval tipi sadece bir zaman periyodunun uzunluğunu tutar.
+
+CREATE TABLE date_time_types(
+	timestamp_column timestamp with time zone,
+	interval_column interval
+);
+
+INSERT INTO date_time_types
+VALUES  ('2019-09-30 23:14 GMT+3', '25 years'),
+		('2019-09-30 23:14 -8', '1 month'),
+		('2019-09-30 23:14 Australia/Melbourne', '1 century'),
+		(now(), '1 week');
+		
+COPY date_time_types TO '/home/apeiron/date_time_types.txt'
+WITH (FORMAT CSV, HEADER, DELIMITER '|');
+
+# Yukarıdaki örnekte timestamp with time zone ve interval tiplerine sahip iki sütunu bulunan
+# bir tablo oluşturuldu. İlk timestamp GMT+3 zaman bölgesini; -8, UTC'ye göre kaymayı gösteriyor.
+# -8, yani UTC'nin 8 saat gerisinde bulunulması dolayısıyla Birleşik Krallık'ın batısını kastediyor.
+# Australia/Melbourne ile ise standart time zone database kullanılmıştır. Dördüncü satırda ise
+# PostgreSQL fonksiyonu olan now() kullanılarak makinenin donanımından faydalanılarak o anki
+# transaction zamanı kullanılmış. Girilen tarihlerin bulunduğu zaman bölgesi bilgisi kullanılarak
+# timestamplar bizim bulunduğumuz zaman bölgesindeki tarihlere çevirilir. Bu nedenle aynı tarihleri
+# girsekte zaman bölgelerini farklı belirlediğimiz için dönüşümler sonucunda farklı tarihler elde
+# edilir.
+
+# interval değerleri timestamplerden çıkartarak örneğin çeşitli dönem sonlarını bulabiliriz. Örneğin
+# bir kiracının kontrat tarihi ve süresini kullanarak kontrat bitiş tarihini hesaplayabiliriz.
+
+SELECT timestamp_column,
+		interval_column,
+		timestamp_column + interval_column AS new_date
+FROM date_time_types;
+
+# Farklı veri tipleri arasındaki dönüşümleri CAST() fonksiyonu ile yapabiliriz fakat orjinal tip ile
+# dönüştürülmek istendiği tip birbiri ile uyumlu olmalı. Aşağıda timestamp veri tipinin varchar tipine
+# dönüştürülmesi gösterilmiştir. Argüman olarak 12 karakter kullanıldığından orjinal timestampta sadece
+# 12 karakter alınır.
+
+SELECT timestamp_column, CAST(timestamp_columns AS varchar(12))
+FROM date_time_types;
+
+# Bir başka örnek...
+SELECT CAST(fixed_column AS integer), 
+	   CAST(fixed_column AS varchar(5))
+FROM decimal_formats;
+
+# Aynı dönüşümleri '::' operatörü ile de yapmak mümkündür. Fakat bu sadece PostgreSQL'de yapılabilir.
+SELECT fixed_column::integer,
+	   fixed_column::varchar(10)
+FROM decimal_formats;
 
