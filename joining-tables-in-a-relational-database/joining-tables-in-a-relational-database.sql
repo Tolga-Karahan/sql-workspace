@@ -87,7 +87,7 @@ CREATE TABLE enrollments(
 );
 
 CREATE TABLE grades(
-	id integer CONSTRAINT grd_school_key PRIMARY,
+	id integer CONSTRAINT grd_school_key PRIMARY KEY,
 	grade varchar(10)
 );
 
