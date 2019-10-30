@@ -68,8 +68,8 @@ CREATE TABLE registrations(
 # hata alınır. Foreign key tanımladığımız zaman verileri ekleme ve silme sırası önem kazanır. Verileri eklerken
 # öncelikle foreign key in referansladığı primary key in bulunuduğu tabloya kayıt eklemeliyiz. Aksi takdirde hata
 # alırız. Verileri silerken ise tersten gitmeliyiz. Verileri silerken hata almak istemiyorsak, CASCADE keywordünü
-# kullanarak; foreign key in referansladığı primary key in bulunduğu tabloda bir kayıt silindiğinde, foreign key in
-# bulunduğu tabloda da karşılık düşen kaydın silinmesini sağlayabiliriz. Syntax şu şekildedir:
+# kullanarak; foreign key in referansladığı primary key in bulunduğu tabloda bir kayıt silindiğinde, foreign key
+# in bulunduğu tabloda da karşılık düşen kaydın silinmesini sağlayabiliriz. Syntax şu şekildedir:
 CREATE TABLE registrations(
 	registration_id char(7),
 	registration_date date,
@@ -78,3 +78,52 @@ CREATE TABLE registrations(
 );
 
 
+# CHECK constraint ile bir sütuna eklenen verinin belirli bir kriteri karşılayıp karşılamadığını kontrol edebiliriz.
+# Kriter karşılanmıyorsa veritabanı hata döndürür. CHECK constraint ile tutarsız verilerin eklenmesinin önüne geçebiliriz.
+# PRIMARY KEY'lerde olduğu gibi sütun ve ya tablo üzerinden CHECK constraint tanımlayabiliriz. 
+CREATE TABLE check_constraint_example(
+	employee_id bigserial,
+	employee_role varchar(30),
+	salary integer,
+	CONSTRAINT employee_key PRIMARY KEY (employee_id),
+	CONSTRAINT check_role_in_list CHECK (employe_role IN ('Admin', 'Staff')),
+	CONSTRAINT check_salary_not_zero CHECK (salary > 0)
+);
+
+ # Sütunlar üzerinden de kontrol yapabiliriz.
+ CONSTRAINT sale_check CHECK (sale_price < retail_price)
+
+# UNIQUE constraint kullanarak bir sütundaki tüm değerlerin unique olduğundan emin olabiliriz. PRIMARY KEY den farkı
+# birden fazla NULL değerler içerebilmesidir.
+CREATE TABLE unique_constraint_example(
+	contact_id char(10),
+	first_name varchar(30),
+	last_name varchar(30),
+	email varchar(100),
+	CONSTRAINT contact_key PRIMARY KEY (contact_id),
+	CONSTRAINT email_unique UNIQUE (email)
+);
+
+# NOT NULL constraint kullanarak bir sütunda NULL değer bulunmadığından emin olabiliriz. Basitçe NULL bulunmasını
+# istemediğimiz sütunun yanında NOT NULL keywordünü kullanarabiliriz.
+CREATE TABLE not_null_example(
+	employee_id char(10),
+	first_name varchar(30) NOT NULL,
+	last_name varchar(30) NOT NULL,
+	CONSTRAINT employee_key PRIMARY KEY (employee_id)
+);
+
+# Tablolar oluşturulduktan sonra constraint eklemek ve ya çıkarmak istiyorsak ALTER TABLE ifadesini kullanırız.
+# Primary key, foreign key ve ya unique constraintlerini silmek için şu syntaxı kullanırız:
+ALTER TABLE table_name DROP constraint_name;
+
+# Not null constrainti silmek için sütunu belirtmeliyiz. Bu nedenle ALTER COLUMN ifadesini de kullanırız.
+ALTER TABLE table_name ALTER COLUMN column_name DROP NOT NULL;
+
+# Tablolar oluşturulduktan sonra constraint eklemek istiyorsak, constraint ekleyeceğimiz sütunlardaki değerler
+# bu constraintleri karşılıyor olmalıdır. 
+# ADD keywordünü ALTER TABLE ifadesi ile kullanarak constraint ekleyebiliriz.
+ALTER TABLE table_name ADD CONSTRAINT constraint_name CONSTRAINT_TYPE (column);
+
+# SET keywordünü ALTER TABLE ve ALTER COLUMN ifadeleri ile kullanarak NOT NULL constraint ekleyebiliriz.
+ALTER TABLE table_name ALTER COLUMN column_name SET NOT NULL; 
