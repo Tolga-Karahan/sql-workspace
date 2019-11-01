@@ -127,3 +127,58 @@ ALTER TABLE table_name ADD CONSTRAINT constraint_name CONSTRAINT_TYPE (column);
 
 # SET keywordünü ALTER TABLE ve ALTER COLUMN ifadeleri ile kullanarak NOT NULL constraint ekleyebiliriz.
 ALTER TABLE table_name ALTER COLUMN column_name SET NOT NULL; 
+
+# Sütunlara indeks ekleyerek sorguların daha hızlı çalışmasını sağlayabiliriz. Böylece tüm satırları taramak
+# yerine indeksler kullanılarak daha kısa sürede işlemler yapılabilir. PRIMARY KEY  ve ya UNIQUE gibi constraintler
+# de indekstir. İndeksler tablolardan ayrı tutulur ve bir sorgu koşulduğunda otomatik olarak erişilir. Yeni bir veri
+# eklendiğinde ise otomatik olarak güncellenir. PostgreSQL'de default olarak B-Tree indeks kullanılır. PRIMARY KEY
+# ve ya UNIQUE constraintlerin kullanıldığı sütunlarda otomatik olarak oluşturulur. CREATE INDEX ifadesi de yine
+# default olarak B-Tree indeksi oluşturur. Karşılaştırma operatörleri kullanılabilen veriler için indeks kullanmak
+# performans iyileştirmeleri sağlar. PostgreSQL'de Generalized Inverted Index(GIN) ve Generalized Search Tree(GiST)
+# gibi ilave indeks tipleri bulunur. 
+
+# Veri üzerinden karşılaştırmalar yapalım. PostgreSQL'de EXPLAIN keywordü ile sorgu planını görerek karşılaştırma
+# yapabiliriz. ANALYZE keywordünü de ekleyerek ise sorguyu koşarak ne kadar zamanda tamamlandığını görebiliriz.
+CREATE TABLE new_york_addresses(
+	longitude numeric(9,6),
+	latitude numeric(9,6),
+	street_number varchar(10),
+	street varchar(32),
+	unit varchar(7),
+	postcode varchar(5),
+	id integer CONSTRAINT new_york_key PRIMARY KEY
+);
+
+COPY new_york_addresses
+FROM '../data/city_of_new_york.csv'
+WITH (FORMAT CSV, HEADER);
+
+EXPLAIN ANALYZE SELECT * FROM new_york_addresses
+WHERE street = 'BROADWAY';
+
+EXPLAIN ANALYZE SELECT * FROM new_york_addresses
+WHERE street = '52 STREET';
+
+EXPLAIN ANALYZE SELECT * FROM new_york_addresses
+WHERE street = 'ZWICKY AVENUE';
+
+# stret sütunu üzerinde indeks oluşturarak karşılaştırma yapalım.
+CREATE INDEX street_index ON new_york_addresses (street);
+
+EXPLAIN ANALYZE SELECT * FROM new_york_addresses
+WHERE street = 'BROADWAY';
+
+EXPLAIN ANALYZE SELECT * FROM new_york_addresses
+WHERE street = '52 STREET';
+
+EXPLAIN ANALYZE SELECT * FROM new_york_addresses
+WHERE street = 'ZWICKY AVENUE';
+
+# Oluşturduğumuz indeksi DROP INDEX index_name syntaxı ile silebiliriz.
+DROP INDEX street_index;
+
+# İndeksler ciddi performans iyileştirmeleri yapabilse de her zaman kullanılmazlar. Çünkü veritabanını 
+# genişletirler ve veriler yazılırken fazladan maliyet çıkartırlar. Tablolar birleştirilirken kullanılan
+# sütunlar indekslenebilir. PostgreSQL default olarak primary keyleri indeksler fakat foreign keyler
+# indekslenmez. Dolayısıyla foreign keyleri de indeksleyebiliriz. Sık sık WHERE keywordünü kullandığımız
+# sütunları indeksleyebiliriz. s
