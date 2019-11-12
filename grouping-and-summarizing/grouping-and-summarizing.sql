@@ -43,14 +43,27 @@ WHERE l2009.visits >= 0 AND l2014.visits >= 0;
 SELECT l2009.stabr,
        sum(l2009.visits) AS visits_09,
        sum(l2014.visits) AS visits_14,
-       round((CAST(sum(l2009.visits) AS numeric (10, 1)) - sum(l2014.visits))
-	   / sum(l2009.visits) * 100, 2) AS percent_change
+       round((CAST(sum(l2014.visits) AS numeric (10, 1)) - sum(l2009.visits)) /
+           sum(l2009.visits) * 100, 2) AS pct_change
 FROM pls_fy2009_pupld09a l2009 JOIN pls_fy2014_pupld14a l2014
 ON l2009.fscskey = l2014.fscskey
+WHERE l2009.visits >= 0 AND l2014.visits >= 0
 GROUP BY l2009.stabr
-ORDER BY percent_change DESC;
+ORDER BY pct_changes DESC;
 
-
-
-
+# Aggregate fonksiyonları ile elde ettiğimiz sonuçları HAVING ifadesi ile filtreleyebiliriz.
+# Kütüphaneleri ziyaret eden insanların çok daha fazla olduğu büyük eyaletleri kendi arasında
+# karşılaştırmak daha mantıklı sonuçlar üretebilir. Örneğin gruplama yapıldıktan sonra toplam
+# ziyaretçi sayısı 50 milyonu aşan eyaletleri değerlendirmeye alabiliriz.
+SELECT	l2009.stabr,
+		sum(l2009.visits) AS visits_09,
+        sum(l2014.visits) AS visits_14,
+        round((CAST(sum(l2014.visits) AS numeric(10, 1)) - sum(l2009.visits)) /
+        	sum(l2009.visits) * 100, 2) AS pct_change
+FROM pls_fy2009_pupld09a l2009 JOIN pls_fy2014_pupld14a l2014
+ON l2009.fscskey = l2014.fscskey
+WHERE l2009.visits >= 0 AND l2014.visits >= 0
+GROUP BY l2009.stabr
+HAVING sum(l2014.visits) > 50000000
+ORDER BY pct_change;
 
