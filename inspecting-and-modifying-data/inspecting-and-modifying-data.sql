@@ -1,8 +1,7 @@
-# Analiz etmemiz gereken veriler kirli olabilir. Bu durumda veri içerisinde hatalar,
-# kayıp değerler ve ya sorguların verimsiz çalışmasına sebep olan organizasyon problemleri
-# bulunabilir. Dosya formatları arasında dönüşümler yapılırken ve ya sütunlar için yanlış
-# veri tipleri seçildiğinde veri kaybı oluşabilir. İmla hataları ve karmaşık sütun isimleri
-# analizi zorlaştırabilir. 
+# Analiz etmemiz gereken veriler kirli olabilir. Bu durumda veri içerisinde hatalar, kayıp değerler
+# ve ya sorguların verimsiz çalışmasına sebep olan organizasyon problemleri bulunabilir. Dosya
+# formatları arasında dönüşümler yapılırken ve ya sütunlar için yanlış veri tipleri seçildiğinde
+# veri kaybı oluşabilir. İmla hataları ve karmaşık sütun isimleri analizi zorlaştırabilir. 
 
 # FSIS Meat, Poultry and Egg Inspection verisini import ederek üzerinde çalışalım.
 CREATE TABLE meat_poultry_egg_inspect(
@@ -52,20 +51,126 @@ SELECT est_number,
 FROM meat_poultry_egg_inspect
 WHERE st IS NULL;
 
-# Aynı şirkete ait birden fazla lokasyon bulunabilir. Bu lokasyonları şirkete göre gruplama yaparak
-# bulabiliriz. Ayrıca gruplama sonucunda aynı şirket isminin farklı şekillerde yazılması sebebiyle
-# tutarsızlıklar bulunup bulunmadığını görebiliriz.
+# Aynı şirkete ait birden fazla tesis bulunabilir. Dolayısıyla şirkete kayıtlı birden fazla adres
+# bulunabilir. Bu adresleri şirkete göre gruplama yaparak bulabiliriz. Ayrıca gruplama sonucunda
+# aynı şirket isminin farklı şekillerde yazılması sebebiyle tutarsızlıklar bulunup bulunmadığını
+# görebiliriz.
 SELECT company,
        count(*) AS company_counts
 FROM meat_poultry_egg_inspect
 GROUP BY company
 ORDER BY company; 
 
-# Posta kodu gibi bazı kodların uzunlukları standarttır. Verilerin bu standartlara uyup uymadığını
-# anlamak için legth() fonksiyonunu kullanabiliriz. length() fonksiyonu bir string içerisinde bulunan
+# Posta kodu gibi bazı kodlar standart uzunluklara sahiptir. Verilerin bu standartlara uyup uymadığını
+# anlamak için length() fonksiyonunu kullanabiliriz. length() fonksiyonu bir string içerisinde bulunan
 # karakter sayısını verir.
 SELECT length(zip),
        count(*)
 FROM meat_poultry_egg_inspect
 GROUP BY length(zip) ASC;
+
+# Posta kodu standart uzunluktan az olan şirketlerden hangi eyalette kaç tane bulunduğunu gösterelim.
+SELECT st,
+       count(*) AS st_count
+WHERE length(zip) < 5
+GROUP BY st
+ORDER BY st;
+
+# Veritabanları oluşturulduktan sonra nadiren aynı kalır. Yeni tablolar, sütunlar eklenir, veri tipleri
+# ve değerler değiştirilir. Veritabanında değişiklikler yapılırken yaygın olarak kullanılan iki komut
+# ALTER TABLE ve UPDATE komutlarıdır. ALTER TABLE komutu sütun eklemek, değiştirmek, düşürmek ve benzer
+# işlevleri sağlar. UPDATE komutu ise tablolarda bulunan verileri değiştirmemizi sağlar.
+
+# ALTER TABLE ifadesi ile tabloların yapılarını değiştiririz. Bazı yaygın işlemler aşağıdaki gibidir:
+
+# Tabloya yeni bir sütun eklerken ALTER TABLE ifadesini şu şekilde kullanırız. Bu ifade sadece sütunu
+# ekler, ayrıca sütunu veriler ile doldurmak gereklidir.
+ALTER TABLE table_name ADD COLUMN column data_type;
+
+# Tablodan bir sütunu silerken ise ALTER TABLE ifadesini şu şekilde kullanırız:
+ALTER TABLE table_name DROP COLUMN column;
+
+# Tablodaki bir sütunun veri tipini şu şekilde değiştiririz:
+ALTER TABLE table_name ALTER COLUMN column SET DATA TYPE data_type;
+
+# Tablodaki bir sütuna NOT NULL constraint ekleyelim, tabi constraint ekleyeceğimiz sütun constraint
+# şartlarını karşılamalıdır:
+ALTER TABLE table_name ALTER COLUMN column SET NOT NULL;
+
+# Tablodaki bir sütunda var olan NOT NULL constrainti şu şekilde sileriz:
+ALTER TABLE table_name ALTER COLUMN column DROP NOT NULL;
+
+# Bir sütunun tamamında ve ya bir bölümünde verileri değiştirmek için UPDATE ifadesini kullanırız.
+# Sütunda bulunan tüm değerleri aşağıdaki gibi değiştirebiliriz:
+UPDATE table_name
+SET column=value;
+# value ile belirtilen kısıma herhangi bir değer, başka bir sütun ve ya değer üreten bir sorgu yazabiliriz.
+
+# Aynı anda birden fazla sütuna ait değeri de değiştirebiliriz:
+UPDATE table_name
+SET column1=value1,
+    column2=value2;
+
+# Eğer sütunun sadece belirli bir kriteri karşılayan bir alt kümesini değiştirmek istiyorsak WHERE ifadesini
+# kullanabiliriz.
+UPDATE table_name
+SET column1=value1
+WHERE criteria;
+
+# Başka bir tabloya ait bir sütunu kullanarakta değerleri değiştirebiliriz. EXISTS ile verilerin NULL olmasını
+# engelledik.
+UPDATE table1
+SET col1= (SELECT col2
+           FROM table2
+           WHERE table1.col1 = table2.col2)
+WHERE EXISTS (SELECT col2
+              FROM table2
+              WHERE table1.col1 = table2.col2);
+
+# Veriler üzerinde değişiklik yapmadan önce tablomuzu yedeklemek isteyebiliriz. Yedek tabloda indeksler yeniden
+# oluşturulmaz.
+CREATE TABLE meat_poultry_egg_inspect_backup AS 
+SELECT * FROM meat_poultry_egg_inspect;
+
+# Tablomuzu analiz ederken eyalet bilgilerinin olduğu st sütununda NULL değerler olduğunu görmüştük. Bu değerleri
+# bulduktan sonra UPDATE ifadesi ile güncelleyelim. Tablomuzu yedeklememize rağmen ekstra önlem olarak işlem
+# yapacağımız sütunu da yedekleyebiliriz.
+ALTER TABLE meat_poultry_egg_inspect ADD COLUMN st_copy varchar(2);
+UPDATE meat_poultry_egg_inspect
+SET st_copy=st;
+
+UPDATE meat_poultry_egg_inspect
+SET st = 'MN'
+WHERE est_number = 'V18677A';
+
+UPDATE meat_poultry_egg_inspect
+SET st = 'AL'
+WHERE est_number = 'M45319+P45319';
+
+UPDATE meat_poultry_egg_inspect
+SET st = 'WI'
+WHERE est_number = 'M263A+P263A+V263A';
+
+# Güncelleme işlemi hatasız tamamlanmışsa yedeklemek için oluşturduğumu sütunu düşürebiliriz.
+ALTER TABLE meat_poultry_egg_inspect DROP COLUMN st_copy;
+
+# Tablomuzun company sütununda Armour-Eckrich Meats firmasına ait yazım farklılıkları nedeniyle
+# tutarsızlıklar oluşmuştu. Bu ise verileri gruplarken yanlış aggregation yapılmasına neden oluyordu.
+# Aynı firmaya ait farklı yazım şekillerini Armour-Eckrich Meats olarak standart hale getirelim.
+UPDATE meat_poultry_egg_inspect
+SET company = 'Armour-Eckrich Meats'
+WHERE company LIKE 'Armour%'; 
+
+# Tablomuzda posta kodu sütununda tutarsızlıklar vardı. Bazı satırlardaki veriler standart 6 hane uzunluğun
+# altındaydı ve bunun sebebi posta kodunun başında bulunan sıfırların silinmesiydi. Başta bulunan bu sıfırları
+# posta kodlarına ekleyerek bu tutarsızlığı ortadan kaldıralım. Puerto Rico ve Virgin Islands'da bulunan 
+# şirketlerin posta kodlarının başına iki tane sıfır, diğer eyaletlerde bulunan şirketlerin posta kodlarının
+# başına ise bir tane sıfır koymamız gerekli. Stringleri birbirine eklemek için '||' operatörünü kullanacağız.
+UPDATE meat_poultry_egg_inspect
+SET zip = '00' || zip
+WHERE st in ('PR', 'VI') AND length(zip) = 3;
+
+UPDATE meat_poultry_egg_inspect
+SET zip = '0' || zip
+WHERE st in ('CT', 'MA', 'ME', 'NH', 'NJ', 'RI', 'VT') AND length(zip) = 4;
 
