@@ -174,3 +174,39 @@ UPDATE meat_poultry_egg_inspect
 SET zip = '0' || zip
 WHERE st in ('CT', 'MA', 'ME', 'NH', 'NJ', 'RI', 'VT') AND length(zip) = 4;
 
+ # Bir tablodaki değerleri güncellemek için başka bir tablonun içeriğine ihtiyaç duyabiliriz. Hayvancılık
+ # şirketlerinin bulunduğu tablomuzda her bir şirketin ait olduğu eyalet tutulmaktaydı. Farklı eyaletler
+ # üzerinden bölgeler oluşturulduğu ve bu bölgelere atanan tarihler üzerinden şirketlerin teftiş edileceğini
+ # düşünelim. Fakat bizim tablomuzda bu bölgere ait bilgi bulunmadığından şirketlerin teftiş edileceği tarihleri
+ # içeren bir sütun oluşturamıyoruz. Eyaletlerin ve bu eyaletin yer aldığı bölge bilgisinin başka bir tabloda
+ # tutulduğunu düşünürsek, teftiş tarihleri için oluşturacağımız sütunu bu tablo bağlamında doldurabiliriz.
+ # Örneğin New England bölgesindeki şirketlerin teftiş tarihini '2019-12-01' olarak belirleyelim.
+ CREATE TABLE state_regions(
+	st varchar(2) CONSTRAINT st_key PRIMARY KEY,
+	region varchar(20) NOT NULL	
+);
+
+COPY state_regions
+FROM 'path_to_file'
+WITH (FORMAT CSV, HEADER);
+
+ALTER TABLE meat_poultry_egg_inspect ADD COLUMN inspect_date date;
+
+UPDATE meat_poultry_egg_inspect inspect
+SET inspect_date = '2019-12-01'
+WHERE EXISTS (SELECT state_regions.region
+ 	          FROM state_regions
+ 	          WHERE inspect.st = state_regions.st
+ 	              AND state_regions.region = 'New England');
+
+# Bölgelere göre teftiş tarihlerini içeren üçüncü bir tabloyu senaryomuza eklersek sorgu şu şekilde olur:
+UPDATE meat_poultry_egg_inspect inspect
+SET inspect_date = (SELECT dt.inspect_date
+ 	                FROM state_regions reg JOIN region_dates dt
+ 	                ON reg.region = dt.region
+				    WHERE inspect.st = reg.st)
+WHERE EXISTS (SELECT reg_dt.region
+ 	          FROM (SELECT reg.st, reg.region, dt.inspect_date
+ 	                FROM state_regions reg JOIN region_dates dt
+ 	                ON reg.region = dt.region) reg_dt
+              WHERE inspect.st = reg_dt.st);
