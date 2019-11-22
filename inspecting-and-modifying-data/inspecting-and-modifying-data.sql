@@ -205,3 +205,40 @@ SET inspect_date = (SELECT dt.inspect_date
  	                FROM state_regions reg JOIN region_dates dt
  	                ON reg.region = dt.region
 				    WHERE inspect.st = reg.st);
+
+# Tablodan satır ve ya satırları silmek için DELETE FROM ifadesini kullanırız. Eğer bir koşul belirtmezsek
+# tüm satırlar silinir. Koşul belirtirsek koşulu sağlayan satırlar silinir.
+DELETE FROM table_name 
+WHERE condition;
+
+# Tüm tabloyu silmek istiyorsak DROP table ifadesini kullanırız.
+DROP TABLE table_name;
+
+# Buraya kadar kullanılan tüm ifadeler, koşulduğu takdirde, yedekleme yapılmamışsa sonuçları geriye alınamayacak
+# işlemler yapar. Eğer değişikliklerin hemen devreye girmesini istemiyorsak önce onları kontrol edebiliriz ve bir
+# problem söz konusu değilse işlemlerin sonlanmasına izin verebiliriz. Bu kontrolleri sağlayabilmek ve değişikliklerin
+# ne olursa olsun yürürlüğe girmesini engellemek için transaction bloklarını kullanıyoruz. SQL sorgularımızı transaction
+# bloklarının içerisine yazarak bunu sağlayabiliriz. Transaction bloğu oluştururken şu keywordleri kullanırız:
+
+# START TRANSACTION keywordü transaction bloğunun başlangıcını belirtir.
+# COMMIT keywordü bloğun sonunu belirtir ve yapılan tüm değişiklikler kaydedilir.
+# ROLLBACK keywordü bloğun sonunu belirtir ve yapılan tüm değişiklikleri geri alır.s
+
+START TRANSACTION;
+
+UPDATE meat_poultry_egg_inspect
+SET company = 'AGRO MErchants Oakland LLC'
+WHERE company = 'AGRO MErchants Oakland, LLC';
+
+SELECT company
+FROM meat_poultry_egg_inspect
+WHERE company LIKE 'AGRO%'
+ORDER BY COMPANY;
+
+ROLLBACK;
+
+# Tablolara yeni bir sütun eklemek tablonun kullandığı alanı hızlıca arttırabilir. Çünkü her yeni bir değer 
+# eklendiğinde her bir satırın yeni bir versiyonu oluşturulur fakat eski satır versiyonu silinmez. 
+
+# Bir tablonun ismini aşağıdaki gibi değiştirebiliriz:
+ALTER TABLE table_name RENAME TO new_table_name;
