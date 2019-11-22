@@ -204,9 +204,4 @@ UPDATE meat_poultry_egg_inspect inspect
 SET inspect_date = (SELECT dt.inspect_date
  	                FROM state_regions reg JOIN region_dates dt
  	                ON reg.region = dt.region
-				    WHERE inspect.st = reg.st)
-WHERE EXISTS (SELECT reg_dt.region
- 	          FROM (SELECT reg.st, reg.region, dt.inspect_date
- 	                FROM state_regions reg JOIN region_dates dt
- 	                ON reg.region = dt.region) reg_dt
-              WHERE inspect.st = reg_dt.st);
+				    WHERE inspect.st = reg.st);
