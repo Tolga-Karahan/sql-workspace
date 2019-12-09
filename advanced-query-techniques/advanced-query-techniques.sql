@@ -234,3 +234,40 @@ oct numeric(3,0),
 nov numeric(3,0),
 dec numeric(3,0)
 );
+
+# Standart SQL CASE ifadesi ile koşullu yapılar oluşturabiliriz. CASE ifadesi verileri kategorilere
+# sınıflandırmak için kullanışlıdır. Örneğin sürekli değerler içeren bir sütun üzerinden belirli
+# aralıklara düşen değerler kategorilere sınıflandırılabilir. CASE ifadesinin sintaksı şöyledir:
+CASE WHEN condition THEN result
+	 WHEN another_condition THEN result
+	 ELSE result
+END
+
+# Hava sıcaklığı aralıklarına göre sınıflar oluşturalım.
+SELECT max_temp,
+CASE WHEN max_temp >= 90 THEN 'Hot'
+WHEN max_temp BETWEEN 70 THEN 'Warm'
+WHEN max_temp BETWEEN 50 THEN 'Pleasant'
+WHEN max_temp BETWEEN 33 THEN 'Cold'
+WHEN max_temp BETWEEN 20 THEN 'Freezing'
+ELSE 'Inhumane'
+END AS temperature_group
+FROM temperature_readings;
+
+ WITH station_and_groups (station_name, temp_group) AS
+ 	(SELECT station_name,
+ 		CASE WHEN max_temp >= 90 THEN 'Hot'
+ 		     WHEN max_temp BETWEEN 70 AND 89 THEN 'Warm'
+ 		     WHEN max_temp BETWEEN 50 AND 69 THEN 'Pleasant'
+ 		     WHEN max_temp BETWEEN 30 AND 49 THEN 'Cold'
+ 		     WHEN max_temp BETWEEN 20 AND 29 THEN 'Freezing'
+ 		     ELSE 'Inhumane'
+ 		     END
+ 	FROM temperature_readings)
+
+ SELECT station_name,
+        temp_group,
+        count(*)
+ FROM station_and_groups
+ GROUP BY station_name, temp_group
+ ORDER BY temp_group;
