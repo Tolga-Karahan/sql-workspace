@@ -83,9 +83,9 @@ COPY crime_reports
 FROM '/home/tkarahan/Documents/my-repositories/practical-sql/crime_reports.csv'
 WITH (FORMAT CSV, HEADER OFF, QUOTE '"');
 
-# Birden fazla eşleştirme yapabilmek için regexp_match(string, regex) fonksiyonunu kullanabiliriz.
-# Böylece her eşleştirmeden oluşan bir dizi elde edebiliriz. Eğer eşleştirme yoksa geriye NULL
-# döndürür. regexp_match fonksyionu PostgreSQL'e özgü bir fonksiyondur.
+# Eşleştirme yapabilmek için regexp_match(string, regex) fonksiyonunu kullanabiliriz.
+# Her satırda ilk eşleşmeyi döndürür. Eğer eşleşme yoksa geriye NULL döndürür. regexp_match
+# fonksyionu PostgreSQL'e özgü bir fonksiyondur.
 
 # Orijinal metinden tarihleri çıkartalım:
 SELECT crime_id,
@@ -108,3 +108,25 @@ SELECT crime_id,
        regexp_match(original_text, '-(\d{1,2}\/\d{1,2}\/\d{2})')
 FROM crime_reports;
 
+# İlk tarih, şehir, suç tipi ve suç idsini birlikte çıkartan bir sorgu yazalım.
+SELECT regexp_match(original_text, '\d{1,2}\/\d{1,2}\/\d{2}') AS date_1,
+       regexp_match(original_text, '(?: Sq.|Plz.|Ter.|Rd.|Dr.)\n(\w+ \w+|\w+)\n') AS city,
+       regexp_match(original_text, '\n(?:\w+ \w+|\w+)\n(.*):') AS crime_type,
+       regexp_match(original_text, '(?:C0|SO)\d+') AS crime_id
+FROM crime_reports;
+
+# regexp_match fonksiyonu geriye text dizisi döndürdüğü için elde edilen sütun tipi text[] olur ve değerler
+# süslü parantez içerisinde bulunur. Bu ise UPDATE işlemlerinde problemlere neden olabilir. Dolayısıyla
+# verileri dizi olarak değil değer olarak elde etmek için dizi notasyonundan faydalanırız.
+SELECT (regexp_match(original_text, '(?:C0|SO)\d+'))[1] AS crime_id
+FROM crime_reports;
+
+# Tablodaki zaman verisini timstamptz olacak şekilde güncelleyelim.
+UPDATE crime_reports
+SET date_1 = (
+	CAST(
+		(regexp_match(original_text, '\d{1,2}\/\d{1,2}\/\d{2}'))[1] || ' ' ||
+    	(regexp_match(original_text, '\/\d{2}\n(\d{4})'))[1] || ' UTC+3'
+		AS timestamp with time zone
+		)
+);   
