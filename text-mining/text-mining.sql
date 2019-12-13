@@ -130,3 +130,65 @@ SET date_1 = (
 		AS timestamp with time zone
 		)
 );   
+
+
+# Eğer olay aynı gün içerisinde gerçekleşmiş ise sadece tek tarih bilgisi yer almakta. Dolayısıyla 1. tarih
+# verisini ikinci saat verisi ile birleştirerek 2. tarih sütununu güncellememiz gerekir. 1. ve 2. tarih
+# sütunlarını hep birlikte koşullu yapı kullanarak güncelleyelim:
+UPDATE crime_reports
+SET date_1 =
+	(
+		CAST(
+			(regexp_match(original_text, '\d{1,2}\/\d{1,2}\/\d{2}'))[1] || ' ' ||
+			(regexp_match(original_text, '\/\d{2}\n(\d{4})'))[1] 
+			AS timestamp with time zone)
+	),
+
+	date_2 =
+	(	CASE
+			WHEN
+				(regexp_match(original_text, '-(\d{1,2}\/\d{1,2}\/\d{2})') IS NULL AND
+					regexp_match(original_text, '\/\d{2}\n(\d{4})') IS NOT NULL)
+			THEN
+				CAST((regexp_match(original_text, '\d{1,2}\/\d{1,2}\/\d{2}'))[1] || ' ' ||
+					(regexp_match(original_text, '\/\d{2}\n(\d{4})'))[1] || 'UTC+3'
+				    AS timestamp with time zone)
+			WHEN
+				(regexp_match(original_text, '-(\d{1,2}\/\d{1,2}\/\d{2})') IS NOT NULL AND
+					regexp_match(original_text, '\/\d{2}\n(\d{4})') IS NOT NULL)
+			THEN
+				CAST((regexp_match(original_text, '-(\d{1,2}\/\d{1,2}\/\d{2})'))[1] || ' ' ||
+					(regexp_match(original_text, '\/\d{2}\n(\d{4})'))[1] || 'UTC+3'
+				    AS timestamp with time zone)
+			ELSE
+				NULL
+		END  
+	),
+
+	street      = (regexp_match(original_text, 'hrs.\n(\d+ .+(?:?:Sq.|Plz.|Ter.|Rd.|Dr.))'))[1],
+	city        = (regexp_match(original_text, '(?:Sq.|Plz.|Ter.|Rd.|Dr.)\n(\w+ \w+|\w+)\n'))[1],
+	crime_type  = (regexp_match(original_text, '\n(?:\w+ \w+|\w+)\n(.+):'))[1],
+	description = (regexp_match(original_text, ':\s(.+)(?:C0|SO)'))[1],
+	case_number = (regexp_match(original_text, '(?:SO|C0)\d+)'))[1];
+
+# Regexleri WHERE ifadesi ile birlikte kullanarak filtreleme yapabiliriz. ~ ile başlayan regexler
+# case sensitive, ~* ile başlayan regexler ise case insensitive olurlar. Başlarına ! koyarak
+# tümleyenlerini alabiliriz.
+SELECT geo_name
+FROM us_counties_2010
+WHERE geo_name ~* '.+ash.+' AND geo_name !~ 'Wash.+';
+
+# Bazı diğer kullanışlı regex fonksiyonlarına bakalım:
+
+# regexp_replace(text, pattern, replacement), fonksiyonu argüman olarak aldığı stringi argüman olarak
+# aldığı patern ile eşleştirir ve replacement argümanı ile belirtilen string ile değiştirir.
+SELECT regexp_replace('23/09/2004', '\d{4}', '1994');
+
+# regexp_split_to_table(text, pattern) fonksiyonu, argüman olarak aldığı stringi argüman olarak aldığı
+# paterne göre ayırır.
+SELECT regexp_split_to_table('one, two, three', ',');
+
+# regexp_split_to_array(text, pattern) fonksiyonu ise stringi paterne göre böler ve sonucu dizi olarak
+# döndürür.
+SELECT regexp_split_to_array('one, two, three', ',');
+
