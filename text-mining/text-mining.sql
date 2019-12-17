@@ -192,3 +192,137 @@ SELECT regexp_split_to_table('one, two, three', ',');
 # döndürür.
 SELECT regexp_split_to_array('one, two, three', ',');
 
+# PostgreSQL, bir full text search motoruna sahiptir. Büyük miktarlarda metin içerisinden bilgi çıkartmaya
+# çalışırken bu motordan faydalanmak kullanışlı olabilir. PostgreSQL implementasyonunda iki veri tipi
+# bulunmaktadır. tsvector, aranacak metni temsil eder ve optimize bir şekilde tutulmasını sağlar. tsquery,
+# sorgu terimlerini ve operatörlerini temsil eder.
+
+# tsvector, metni lexeme denilen sıralı anlam birimleri halinde tutar. Böylece kelimeler eklentilerinden
+# bağımszız bir şekilde kök sözcük olarak tutulur ve asıl metindeki pozisyonları kaydedilir. the, it gibi
+# arama açısından önemli olmayan kelimeler silinir. to_tsvector(string), fonksiyonu ile bir stringi
+# tsvector formatına dönüştürebiliriz.
+SELECT to_tsvector('I am walking across the sitting room to sit with you.');  
+
+# tsquery veri tipi tam metin arama sorgusunu temsil eder ve yine leximeler halinde organize edilir. Aynı
+# zamanda operatörlerde içerir(&, |, ! vs gibi...). <-> operatörü komşu ve ya belirlenen uzaklıktaki 
+# kelimeler için arama yapmayı sağlar. to_tsquery(search_query), fonksiyonuna aramak istediğimiz kelimeleri
+# ve operatörleri sağlayan tsquery karşılığını elde edebiliriz.
+SELECT to_tsquery('walking & sitting');  
+
+# Metin ve arama terimleri tam metin arama veri tiplerine dönüştürüldükten sonra @@ operatörü ile herhangi
+# bir sorgunun metin ile eşleşip eşleşmediğini kontrol edebiliriz. 
+SELECT to_tsvector('I am walking across the sitting room to sit with you.') @@
+	to_tsquery('walking & sitting');
+
+SELECT to_tsvector('I am walking across the sitting room to sit with you.') @@
+	to_tsquery('walking & running');
+
+# Sorgu ve metin eşleşiyorsa t, eşleşmiyorsa ise f sonucunu alırız.
+
+# Pratik için bazı ABD başkanlarına ait konuşma metinleri üzerinde çalışacağız. Verimizi import edelim.
+CREATE TABLE president_speeches(
+	sotu_id serial PRIMARY KEY,
+	president varchar(100) NOT NULL,
+	title varchar(250) NOT NULL,
+	speech_date date NOT NULL,
+	speech_text text NOT NULL,
+	search_speech_text tsvector
+);
+
+COPY president_speeches (president, title, speech_date, speech_text)
+FROM '/home/tkarahan/Documents/my-repositories/sql-workspace/data/sotu-1946-1977.csv'
+WITH (FORMAT CSV, DELIMITER '|', HEADER OFF, QUOTE '@');
+
+# İlgili sütunu asıl metnin tsvector karşılığı ile dolduralım.
+UPDATE president_speeches
+SET search_speech_text = to_tsvector('english', speech_text);
+
+# Daha hızlı işlem yapabilmek için tsvectorleri içeren sütunu indeksleyelim. PostgreSQL tam metin arama
+# uygulamaları için indeks olarak GIN(Generalized Inverted Index) indeks tipini öneriyor.
+CREATE INDEX search_idx ON president_speeches USING gin(search_speech_text);
+
+# Konuşma metninin içerisinde Vietnam geçen ABD başkanlarını bulalım.
+SELECT president,
+       title,
+       speech_date
+FROM president_speeches
+WHERE search_speech_text @@ to_tsquery('Vietnam')
+ORDER BY speech_date;
+
+# ts_headline() fonksiyonu ile eşleşme olan kelimeleri ve komşu sözcükleri gösterebiliriz. Fonksiyonun
+# argümanları ile çıktıyı formatlayabiliriz.
+SELECT president,
+       speech_date,
+       ts_headline(speech_text, to_tsquery('Vietnam'),
+       	           'StartSel = <,
+       	            Stopsel  = >,
+       	            MinWords = 7,
+       	            MaxWords = 9,
+       	            MaxFragments = 1')
+FROM president_speeches
+WHERE search_speech_text @@ to_tsquery('Vietnam')
+ORDER BY speech_date;
+
+# Aramalarda birden fazla terimde kullanabiliriz. Örneğin konuşma metinlerinde transportation kelimesi olan
+# fakat roads kelimesi olmayan başkanlara bakalım. Yani yollara değinmeksizin daha genel olarak ulaşımdan
+# bahsedilen konuşmaları bulalım.
+SELECT president,
+       speech_date,
+       ts_headline(speech_text, to_tsquery('transportation & !roads'),
+       	           'StartSel = <,
+       	            Stopsel  = >,
+       	            MinWords = 7,
+       	            MaxWords = 9,
+       	            MaxFragments = 1')
+FROM president_speeches
+WHERE search_speech_text @@ to_tsquery('transportation & !roads')
+ORDER BY speech_date;
+
+# <-> operatörü ile komşu sözcükler üzerinden eşleştirme yapabiliriz. Konuşma metinlerinde cold kelimesini
+# war kelimesinin takip ettiği başkanları bulalım. '-' işareti yerine bir sayı yazarsak hemen komşu olan
+# kelimeler için değil belirtilen sayı kadar uzaklık bulunan kelimeler için eşleşme yapılır.
+SELECT president,
+       speech_date,
+       ts_headline(speech_text, to_tsquery('cold <-> war'),
+       	           'StartSel = <,
+       	            StopSel  = >,
+       	            MinWords = 5,
+       	            MaxWords = 7,
+       	            MaxFragments = 1')
+FROM president_speeches
+WHERE search_speech_text @@ to_tsquery('cold <-> war')
+ORDER BY speech_date;
+
+# Sonuçları arama terimlerimize göre ranklayarak en alakalı eşleşmeleri görebiliriz. ts_rank() fonksiyonu
+# aranan leximelerin ne kadar sık metinde bulunduğuna göre ranklama yapar. ts_rank_cd() fonksiyonu ise
+# aranan leximelerin birbirlerine ne kadar yakın olduğu üzerinden ranklama yapar. 
+
+# war, security, threat ve enemy kelimelerini en sık içeren metinleri ts_rank() fonksiyonu ile ranklayalım.
+SELECT president,
+       speech_date,
+       ts_headline(speech_text, to_tsquery('war & security & threat & enemy'),
+       	           'StartSel = <,
+       	            StopSel  = >,
+       	            MinWords = 5,
+       	            MaxWords = 7,
+       	            MaxFragments = 1'),
+       ts_rank(search_speech_text, to_tsquery('war & security & threat & enemy')) AS score
+FROM president_speeches
+WHERE search_speech_text @@ to_tsquery('war & security & threat & enemy')
+ORDER BY score DESC;
+
+# Aranan terimlerin sıklığına göre ranklamak, aranan metnin uzunluğuna da duyarlıdır. Bu nedenle ts_rank()
+# fonksiyonuna üçüncü bir argüman olarak 2 değerini sağlayarak rankın metin uzunluğuna göre normalize
+# edilmesini sağlayabiliriz.
+SELECT president,
+       speech_date,
+       ts_headline(speech_text, to_tsquery('war & security & threat & enemy'),
+       	           'StartSel = <,
+       	            StopSel  = >,
+       	            MinWords = 5,
+       	            MaxWords = 7,
+       	            MaxFragments = 1'),
+       ts_rank(search_speech_text, to_tsquery('war & security & threat & enemy'), 2) AS score
+FROM president_speeches
+WHERE search_speech_text @@ to_tsquery('war & security & threat & enemy')
+ORDER BY score DESC;
