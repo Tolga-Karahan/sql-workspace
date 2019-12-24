@@ -26,8 +26,8 @@
 # Eğer karakterleri stringin başından silmek istiyorsak leading characters from string, 
 # stringin sonundan silmek istiyorsak trailing characters from string formatında argüman
 # göndeririz. leading ve ya trailing argümanlarını kullanmazsak argüman olarak belirtilen
-# karakterler ile eşleşen tüm karakterler silinir. trim fonksiyonuna bir argüman vermezsek
-# varsayılan olarak string içerisindeki boşlukları siler.
+# karakterler baştan ve sondan silinir. trim fonksiyonuna bir argüman vermezsek varsayılan
+# olarak string içerisindeki boşlukları siler.
 
 # left(string, number) ve right(string, number) fonksiyonları ile sırasıyla stringin solundan
 # ve sağından number argümanı ile belirtilen kadar karakter döndürülür. 
@@ -206,7 +206,7 @@ SELECT to_tsvector('I am walking across the sitting room to sit with you.');
 # tsquery veri tipi tam metin arama sorgusunu temsil eder ve yine leximeler halinde organize edilir. Aynı
 # zamanda operatörlerde içerir(&, |, ! vs gibi...). <-> operatörü komşu ve ya belirlenen uzaklıktaki 
 # kelimeler için arama yapmayı sağlar. to_tsquery(search_query), fonksiyonuna aramak istediğimiz kelimeleri
-# ve operatörleri sağlayan tsquery karşılığını elde edebiliriz.
+# ve operatörleri sağlayarak kelimelerin tsquery karşılığını elde edebiliriz.
 SELECT to_tsquery('walking & sitting');  
 
 # Metin ve arama terimleri tam metin arama veri tiplerine dönüştürüldükten sonra @@ operatörü ile herhangi
