@@ -170,3 +170,70 @@ WHERE ST_DWithin(geog_point,
                  ST_GeogFromText('POINT(-93.6204386 41.5853202)'),
                  10000)
 ORDER BY distance;
+
+# GIS Platformları için standart dosya formatı shapefiledır. Shapefilelar sayesinde binalar, yollar, araziler
+# gibi coğrafik yapılara ait verileri görüntüleyebilir, analiz edebilir ve dağıtabiliriz. Shapefilelar coğrafi
+# bir yapının şeklini tanımlar. Ayrıca bu yapıların niteliklerini tutan bir veritabanı içerir. Tek bir shapefile
+# sadece tek türde bir şekle dair bilgiler içerir, polygon, point vs... Yüklendikleri GIS platformu görselleştirme
+# desteği sunuyorsa bu şekiller görselleştirilebilir ve nitelikleri sorgulanabilir. Shapefile içerisinde farklı
+# uzantılara sahip başka başka dosyalar bulunur ve her bir dosya farklı bir amaca hizmet eder. 
+
+# ABD'de bulunan şehirlerin sınırlarını içeren shapefile ı veritabanımıza yükleyelim.
+shp2pgsql -I -s 4269 -c -W LATIN1 path_to_shapefile | psql -d database user
+
+# Ne tür uzamsal nesne bulunduğuna bakalım. Tüm shapefile aynı tipte veri içerdiğinden bir tanesine bakmak yeterli.
+SELECT ST_AsText(geom)
+FROM county_shapes
+LIMIT 1;
+
+# En büyük alana sahip şehiri bulalım.
+SELECT name10,
+       statefp10 AS st,
+       round(
+       	    (ST_Area(geom::geography))::numeric, 2
+       	    ) AS square_meters
+FROM county_shapes
+ORDER BY county_shapes DESC;
+
+# Eğer bir kişi ve ya bir yerin koordinatlarını biliyorsak uzamsal sorgu yaparak bu noktayı içeren şekli yani bu kişi
+# ve ya yerin yerini bulabiliriz. :) Argümanlar aynı SRID'ye sahip olmalı!
+SELECT name10,
+       statefp10,
+FROM county_shapes
+WHERE ST_Within('SRID=4269;POINT(-118.3419063, 34.0977076)'::geometry, geom);
+
+# Uzamsal veriler içeren sütunlar üzerinden de JOIN işlemleri yapabiliriz.
+# Taşma tehlikesi olan Sante Fe nehrinin yollarla kesiştiği yerlere bakalım. Böylece önlem alınabilir.
+
+# Uzamsal nesne tipleine bakalım.
+SELECT ST_GeometryType(geom)
+FROM santa_fe_roads
+LIMIT 1;
+
+SELECT ST_GeometryType(geom)
+FROM santa_fe_linearwater
+LIMIT 1;
+
+# Santa Fe nehri ile kesişen tüm yolları bulalım. Bu yollarda sel riski olabilir!
+# Uzamsal birleştirme yapacağımız için kesişimlere bakmalıyız. 
+SELECT water.fullname AS waterway,
+       roads.rttyp,
+       roads.fullname AS road
+FROM santa_fe_linearwater water JOIN santa_fe_roads roads
+     ON ST_Intersects(water.geom, roads.geom)
+WHERE water.fullname = 'Santa Fe Riv' AND
+      roads.rttyp IS NOT NULL AND
+	  roads.fullname IS NOT NULL
+ORDER BY roads.fullname;
+
+SELECT water.fullname AS waterway,
+       roads.rttyp,
+       roads.fullname AS road,
+       ST_AsText(ST_Intersection(water.geom, roads.geom))
+	   AS intersection_point
+FROM santa_fe_linearwater water JOIN santa_fe_roads roads
+     ON ST_Intersects(water.geom, roads.geom)
+WHERE water.fullname = 'Santa Fe Riv' AND
+      roads.rttyp IS NOT NULL AND
+      roads.fullname IS NOT NULL
+ORDER BY roads.fullname;
