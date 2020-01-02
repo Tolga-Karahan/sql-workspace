@@ -75,3 +75,58 @@ CREATE OR REPLACE VIEW employees_tax_dept AS
 # WITH LOCAL CHECK OPTION ifadesini kullandığımız için, bu view üzerinde sadece WHERE
 # ifadesinde tanımlanan koşulu sağlayan INSERT VE UPDATE sorguları koşulabilir. View
 # kullanarak veri silebiliriz. Böylece asıl tabloda da karşılık düşen kayıt silinir.
+
+# PostgreSQL'de kendi fonksiyonlarımızı da yazabiliriz. Örnek olarak farklı zamanlardaki
+# iki değer arasındaki yüzdelik değişimi hesaplayan ve sonucu kullanıcının argüman ile
+# belirttiği ondalık basamağa yuvarlayan bir fonksiyon yazalım.
+CREATE OR REPLACE FUNCTION
+percent_change(new_value numeric,
+               old_value numeric,
+               decimal_places integer DEFAULT 1)
+RETURNS numeric AS
+'SELECT ROUND((new_value - old_value) / old_value * 100,
+             decimal_places);'
+LANGUAGE SQL
+IMMUTABLE
+RETURNS NULL ON NULL INPUT;
+
+# CREATE OR REPLACE FUNCTION ifadesinden sonra fonksiyon ismini ve aldığı argümanları
+# veri tipleri ile birlikte fonksiyon headerında yazdık. Ardından RETURNS keywordü ile
+# geri dönecek değerin tipini belirledik AS keywordünden sonra ise argümanları kullanan
+# sorguyu yazdık. Sondaki ifadeler dil olarak düz SQL kullandığımızı, veritabanında bir
+# değişiklik yapılmamasını ve NULL girdi alındığında yine NULL döndürülmesini belirtir.
+# Düz SQL ile fonksiyon yazmanın yanı sıra PostgreSQL spesifik dil olarak PL/pgSQL'de
+# kullanabiliriz. PL/pgSQL standart SQL'de bulunmayan özellikler kazandırır.
+
+# Rutin güncellemeleri basitleştirmek içinde fonksiyonlar yazabiliriz. Örneğin personelin
+# bulunduğu hayali bir tabloda çalıştıkları seneye göre personele izin ataması yapalım.
+CREATE OR REPLACE FUNCTION update_annual_leaves()
+RETURNS void AS $$
+BEGIN
+	UPDATE employees
+	SET annual_leave = 
+		CASE WHEN (now() - hire_date) <= '2 years'::interval THEN 14
+			 WHEN (now() - hire_date) BETWEEN '2 years' :: interval
+			                          AND '5 years' :: interval THEN 20
+			 ELSE 30
+		END;
+	RAISE NOTICE 'annual leaves updated!';
+END;
+$$ LANGUAGE plpgsql;
+
+# PostgreSQL'de, fonksiyon komutlarını içeren stringin başı ve sonu '$$' karakteri ile
+# belirtilir. Zorunlu olmasa da bir kabul gören bir kullanım alışkanlığıdır. Ayrıca tek
+# tırnak, fonksiyon komutlarının içerisinde yine tırnak işareti bulunması nedeniyle
+# sorunlara yol açabilir. $$, yerine $text$ formatını da kullanabiliriz.
+
+# Python dilini kullanarakta PostgreSQL fonksiyonları yazabiliriz. Bunun için plpython3u
+# uzantısını eklememiz gerekir.
+CREATE EXTENSION plpython3u;
+
+# ABD'deki il isimlerinin sonundaki County kelimesini silen bir fonksiyon yazalım.
+CREATE OR REPLACE FUNCTION trim_county(input_string text)
+RETURNS text AS $$
+	import re
+	cleaned = re.sub(r' County', '', input_string)
+	return cleaned
+$$ LANGUAGE plpython3u;
