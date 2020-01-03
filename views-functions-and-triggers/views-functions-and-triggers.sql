@@ -130,3 +130,107 @@ RETURNS text AS $$
 	cleaned = re.sub(r' County', '', input_string)
 	return cleaned
 $$ LANGUAGE plpython3u;
+
+# Triggerlar tablolar ve ya viewlar üzerinde belirlenen bir olay gerçekleştiğinde, örneğin
+# bir ekleme, güncelleme ve ya silme işlemi, otomatik olarak bir fonksiyonun koşulmasını
+# sağlar. Trigger, bir olay her gerçekleştiğinde tetiklenebilir ve ya sadece işlem yapıldığı
+# zaman tetiklenebilir. Mesela 20 tane satır silinmiş ise silinen her bir satır için ve ya
+# tüm işlem için bir kez tetiklenebilirler.
+
+# Örneğin bir okulun veritabanında, öğrenci notları her değiştirildiğinde bu değişim takip
+# edilmek isteniyor olabilir. Her bir not değişiminde eski notu, yeni notu ve değişiklik
+# zamanını loglamak isteyebiliriz. Bunun için üç tane şeye ihtiyacımız var:
+# 1) Logların tutulacağı bir tablo
+# 2) Bir trigger
+# 3) Triggerın koşacağı fonksiyon
+
+CREATE TABLE grades(
+	student_id bigint,
+	course_id  bigint,
+	course varchar(30) NOT NULL,
+	grade varchar(5) NOT NULL,
+	PRIMARY KEY (student_id, course_id)
+);
+
+INSERT INTO grades
+VALUES
+	(1, 1, 'Mat 2', '53'),
+	(1, 2, 'İngilizce', '100'),
+	(1, 3, 'Programlama', '100'),
+	(1, 4, 'OS', 43);
+
+CREATE TABLE grades_history(
+	student_id bigint NOT NULL,
+	course_id  bigint NOT NULL,
+	old_grade  varchar(5) NOT NULL,
+	new_grade  varchar(5) NOT NULL,
+	change_time timestamp with time zone NOT NULL,
+	course varchar(30) NOT NULL,
+	PRIMARY KEY (student_id, course_id, change_time)
+);
+
+# Triggerın koşacağı fonksiyonu tanımlayalım.
+CREATE OR REPLACE FUNCTION record_if_grade_changed()
+RETURNS trigger AS
+$$
+BEGIN
+	IF NEW.grade != OLD.grade
+	THEN
+		INSERT INTO grades_history
+		VALUES (OLD.student_id,
+			    OLD.course_id,
+			    OLD.grade,
+			    NEW.grade,
+			    now(),
+			    OLD.course);
+	END IF;
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+# Triggerımızı tanımlayalım.
+CREATE TRIGGER grades_update
+	AFTER UPDATE
+		ON grades
+	FOR EACH ROW
+	EXECUTE PROCEDURE record_if_grade_changed();
+
+# Bir diğer örnekte girilen sıcaklık değerlerini otomatik olarak sınıflandıran
+# bir trigger yazalım. Böylece değerler girildikten sonra ayrıca kategorinin
+# çıkartılması yerine bu işlem otomatize edilmiş olur.
+CREATE TABLE temperature_test(
+	station_name varchar(50),
+	observation_date date,
+	max_temp integer,
+	min_temp integer,
+	max_temp_group varchar(40),
+	PRIMARY KEY (station_name, observation_date)
+);
+
+CREATE OR REPLACE FUNCTION assign_categories()
+	RETURNS trigger AS 
+$$
+BEGIN
+	CASE
+		WHEN NEW.max_temp >= 40 THEN NEW.max_temp_group = 'Too Hot';
+		WHEN NEW.max_temp BETWEEN 30 AND 39 THEN NEW.max_temp_group = 'Hot';
+		WHEN NEW.max_temp BETWEEN 20 AND 29 THEN NEW.max_temp_group = 'Pleasant';
+		WHEN NEW.max_temp BETWEEN 10 AND 19 THEN NEW.max_temp_group = 'Cold';
+		WHEN NEW.max_temp BETWEEN 0 AND 9 THEN NEW.max_temp_group = 'Freezing';
+		ELSE NEW.max_temp = 'Inhumane';
+	END CASE;
+	RETURN NEW;
+END;
+$$ LANGUAGE plpgsql; 
+
+CREATE TRIGGER temp_insert
+	BEFORE INSERT
+		ON temperature_test
+	FOR EACH ROW
+	EXECUTE PROCEDURE assign_categories();
+
+INSERT INTO temperature_test(station_name, observation_date, max_temp, min_temp)
+VALUES ('Samsun', '01/01/2020', 35, 4);
+
+SELECT *
+FROM temperature_test;
