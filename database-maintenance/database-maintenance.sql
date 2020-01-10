@@ -66,3 +66,29 @@ VACUUM vacuum_test;
 
 # Eğer kullanılabilir alanı diske de döndürmek istiyorak VACUUM FULL komutunu kullanmalıyız:
 VACUUM FULL vacuum_test;
+
+# Bir diğer önemli PostgreSQL aracı pg_dump'tır. pg_dump tüm bir veritabanını ve ya sadece bir
+# tabloyu yedeklemek için kullanılan bir komut satırı aracıdır.
+
+# pg_dump tüm veritabanındaki veriyi içeren bir dosya oluşturabilir, tabloları ve diğer veritabanı
+# nesnelerini yeniden oluşturmak için gerekli SQL komutlarını üretebilir ve tablolara verileri
+# yükleyebilir. pg_dump ile sadece seçtiğimiz tablolarıda kaydedebiliriz.
+
+# Oluşturduğumuz analysis veritabanını yedekleyelim:
+pg_dump -d analysis -U user_name -Fc > analysis_backup.sql
+
+# Normalde pg_dump bir metin dosyası çıktılar. Sıkıştırılmış formatta bir çıktı almak için -Fc
+# argümanını kullanıyoruz.
+
+# -t argümanı ile sadece belirttiğimiz tabloyu yedekleyebiliriz.
+pg_dump -t us_counties_2010 -d analysis -U user_name -Fc
+
+# pg_dump ile veritabanımızı yedekledikten sonra pg_restore aracı ile tekrar oluşturabiliriz.
+# analysis veritanımızı yedeklenmiş dosyasından tekrar oluşturalım.
+pg_restore -C -d postgres -U user_name analysis_backup.sql
+
+# -C argümanı ile veritabanı verilerini tekrar oluşturmayı, -d argümanı ile bağlanılacak veritabanı
+# serverını belirliyoruz.
+
+# Başka pg_dump argümanlarını kullanarak örneğin ismi belirli bir paterne uyan tabloları yedekleyebiliriz
+# ve ya sadece belirli veritabanı nesnelerini yedekleyebiliriz.
